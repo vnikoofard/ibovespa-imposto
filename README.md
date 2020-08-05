@@ -1,0 +1,2 @@
+# Calculador de Imposto de Renda para Ibovespa
+Usando esse App é possivel calcular o imposto de renda sobre as operações de day-trade e swing-trade. Para usar esse App é necessario uploadar o Aviso de Negociação de Ativos (ANA). Cada investidor pode ter acesso a esse documento no canal eletronico do investidor no website da B3 [https://cei.b3.com.br/](https://cei.b3.com.br/). Após de logar no canal, no menu **Extratos e Informativos** se encontra o link para acessar a pagina **Negociação de ativos**. Nessa pagina é possivel baixar o ANA.
