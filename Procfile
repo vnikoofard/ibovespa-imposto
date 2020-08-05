@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run king.py
+web: sh setup.sh && streamlit run ibovespa-imposto.py
