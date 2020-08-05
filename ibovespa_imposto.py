@@ -125,8 +125,9 @@ def swing_trade_imposto(df):
         for m in df[df["Data Negócio"].dt.year ==y]["Data Negócio"].dt.month.unique():
             for ticker in df[(df["Data Negócio"].dt.year ==y) & (df["Data Negócio"].dt.month ==m)]["Código"].unique():
                 venda_mes = df[(df["C/V"]=="V") & (df["Data Negócio"].dt.month ==m) & (df["Data Negócio"].dt.year ==y) & (df["Código"]==ticker)]['Valor Total (R$)'].sum()
-                
+                count = 0
                 if venda_mes >= 20000:
+                    count = 1
                     for index in df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)& (df["Código"]==ticker)].index:
                         df.at[index, "DARF"] = df.loc[index]["Lucro da Venda"]* 0.15
 
@@ -134,7 +135,11 @@ def swing_trade_imposto(df):
                     valor = df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)& (df["Código"]==ticker)]["DARF"].sum()
                     st.subheader("Swing-Trade")
                     st.write(f"O total imposto devido em relação as operações swing-trade no mes {m} do ano {y} escolhido é {round(valor,2)}R$")
-
+                
+                    
+    if count == 0:
+        st.write("Não há nenhuma tributação devido as operações swing-trade no intervalo escolhido.")
+    
     df_group = df[['Data Negócio', 'C/V', 'Código', 'Quantidade', 
 'Valor Total (R$)','Custo de Operação', 'Lucro da Venda', 'Day/Swing', "DARF"]].groupby(['Data Negócio', "Código", "C/V"]).sum()
     
@@ -193,7 +198,7 @@ def impostos(dataset,year ='todos',month='todos',day='todos',modalidade='todos')
 
 #Initialization
 st.title("Análise Tributária do Aviso de Negociação de Ativos (ANA)")
-st.text("O ANA é um documento emitido por B3 que resume todas as operações no mercado de ações Brasileiro. Esse documento se encontra no www.cei.b3.com.br, no menu Extratos e Informativos -> Negociação de ativos. É um arquivo de Excel com nome InfoCEI.xls.")
+st.write("O ANA é um documento emitido por B3 que resume todas as operações no mercado de ações Brasileiro. Esse documento se encontra no www.cei.b3.com.br, no menu Extratos e Informativos -> Negociação de ativos. É um arquivo de Excel com nome InfoCEI.xls.")
 file_buffer = None
 file_buffer = st.file_uploader("Upload o ANA", type=["xls"])
 #text_io = io.TextIOWrapper(file_buffer, encoding='utf-8')
@@ -209,7 +214,7 @@ df_clean = cleaning(df_orig)
 #configuration od sidebar
 years = df_clean["Data Negócio"].dt.year.unique().tolist()
 months = df_clean["Data Negócio"].dt.month.unique().tolist()
-days = df_clean["Data Negócio"].dt.day.unique().tolist()
+days = np.sort(df_clean["Data Negócio"].dt.day.unique()).tolist()
 
 years.insert(0,'todos')
 months.insert(0, 'todos')
