@@ -110,7 +110,8 @@ def day_trade_imposto(df):
 
     imposto_day = df_group['DARF'].sum()
 
-    
+    st.subheader("Day-Trade")
+
     st.write(f"O total imposto devido em relação as operações day-trade no periodo escolhido é {round(imposto_day,2)}")
 
     return df_group[df_group['DARF']!=0]
@@ -131,6 +132,7 @@ def swing_trade_imposto(df):
 
 
                     valor = df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)& (df["Código"]==ticker)]["DARF"].sum()
+                    st.subheader("Swing-Trade")
                     st.write(f"O total imposto devido em relação as operações swing-trade no mes {m} do ano {y} escolhido é {round(valor,2)}R$")
 
     df_group = df[['Data Negócio', 'C/V', 'Código', 'Quantidade', 
@@ -191,6 +193,7 @@ def impostos(dataset,year ='todos',month='todos',day='todos',modalidade='todos')
 
 #Initialization
 st.title("Analise do Aviso de Negociação de Ativos (ANA)")
+st.write("O ANA se encontra no www.cei.b3.com.br, no menu Extratos e Informativos -> Negociação de ativos. É um arquivo de Excel com nome InfoCEI.xls.")
 file_buffer = None
 file_buffer = st.file_uploader("Upload o ANA", type=["xls"])
 #text_io = io.TextIOWrapper(file_buffer, encoding='utf-8')
@@ -198,6 +201,8 @@ file_buffer = st.file_uploader("Upload o ANA", type=["xls"])
 
 if file_buffer is not None:
     df_orig = pd.read_excel(file_buffer, skiprows=10, skipfooter=4)
+else:
+    df_orig = pd.read_excel("InfoCEI_fake.xls", skiprows=10, skipfooter=4)
 
 df_clean = cleaning(df_orig)
 
@@ -224,14 +229,15 @@ modalidade = st.sidebar.selectbox(
     "Escolhe a modalidade (day-trade e/ou swing-trade)",
     ('todos', 'swing', 'day'))
 
-st.write(year,month,day,modalidade)
-
+st.header("Uma Visão Geral das Operações")
 #main part
 
 df = general_view(df_clean)
 #st.dataframe(df, width=1024)
 
 st.dataframe(df.style.set_precision(2))
+
+st.header("Os Impostos")
 
 #impostos(df, year= year, month=month, day=day, modalidade=modalidade)
 st.dataframe(impostos(df, year= year, month=month, day=day, modalidade=modalidade))
