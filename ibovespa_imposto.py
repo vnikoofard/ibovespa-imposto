@@ -220,6 +220,7 @@ years.insert(0,'todos')
 months.insert(0, 'todos')
 days.insert(0, 'todos')
 
+st.sidebar.header("Configurar a Data")
 
 year = st.sidebar.selectbox(
     "Escolhe o ano",years)
