@@ -7,12 +7,8 @@ import io
 
 @st.cache(allow_output_mutation=True)
 def cleaning(dataset):
-    col_drop = []
-    for col in dataset.columns:
-        if re.match(r"Unna", col):
-            col_drop.append(col)
-    if col_drop:
-        dataset.drop(col_drop, axis=1, inplace=True)
+
+    df_orig.drop([x for x in dataset.columns if x.startswith("Unn")], axis=1 , inplace=True)
 
     dataset['Data Negócio'] = pd.to_datetime(dataset['Data Negócio'],dayfirst=True)
 
@@ -35,6 +31,36 @@ def cleaning(dataset):
     dataset.drop(['Mercado', 'Prazo','Especificação do Ativo' ], axis=1, inplace=True)
 
     return dataset
+
+def check_consistency(df):
+
+    fail = {'ticker': [], 'reason':[] }
+    for ticker in df["Código"].unique():
+        
+
+        if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values) > 0:
+
+            first_buy = df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].values[0]
+            first_sell = df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values[0]
+
+            if first_sell<first_buy:
+                fail['ticker'].append(ticker)
+                fail['reason'].append("A data da venda é antes de compra")
+
+            if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values) == 0:
+                fail['ticker'].append(ticker)
+                fail['reason'].append("Não há um preço de compra dessa ação na lista")
+
+    for i in range(len(fail['ticker'])):
+        st.subheader("Erro")
+        st.write(f"Erro na ação {fail['ticker'][i]}")
+        st.write(f"Motivo: {fail['reason'][i]}")
+        st.write("")
+
+    return len(fail['ticker'])==0
+
+
+
 
 @st.cache
 def general_view(df1):
@@ -210,6 +236,11 @@ else:
     df_orig = pd.read_excel("InfoCEI_fake.xls", skiprows=10, skipfooter=4)
 
 df_clean = cleaning(df_orig)
+
+if  not check_consistency(df_clean):
+    
+    raise st.ScriptRunner.StopException
+    #quit()
 
 #configuration od sidebar
 years = df_clean["Data Negócio"].dt.year.unique().tolist()
