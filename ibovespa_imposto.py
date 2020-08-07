@@ -224,7 +224,7 @@ def impostos(dataset,year ='todos',month='todos',day='todos',modalidade='todos')
 
 #Initialization
 st.title("Análise Tributária do Aviso de Negociação de Ativos (ANA)")
-st.markdown("O ANA é um documento emitido por B3 que resume todas as operações no mercado de ações Brasileiro. Esse documento se encontra no [https://cei.b3.com.br](https://cei.b3.com.br), no menu **Extratos e Informativos** -> **Negociação de ativos**. É um arquivo de Excel com nome InfoCEI.xls.")
+st.markdown("O ANA é um documento emitido por B3 que resume todas as operações no mercado de ações Brasileiro. Esse documento se encontra no [https://cei.b3.com.br](https://cei.b3.com.br), no menu **Extratos e Informativos** -> **Negociação de ativos**. É um arquivo de Excel com nome InfoCEI.xls. É crucial que o arquivo ANA contenha todas as operações pois os preços das compras são necessários para calcular o custo medio de cada ação, ou seja, no arquivo tem que ter no minimo uma compra para cada ação antes da sua venda.")
 file_buffer = None
 file_buffer = st.file_uploader("Upload o ANA", type=["xls"])
 #text_io = io.TextIOWrapper(file_buffer, encoding='utf-8')
