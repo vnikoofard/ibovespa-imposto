@@ -39,15 +39,15 @@ def check_consistency(df):
         
 
         if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values) > 0:
-
+	#check to insure the sell date is after the purchase date. It guarantee that we have a mean price to calculate the profit.
             first_buy = df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].values[0]
             first_sell = df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values[0]
 
             if first_sell<first_buy:
                 fail['ticker'].append(ticker)
                 fail['reason'].append("A data da venda é antes de compra")
-
-            if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values) == 0:
+	#check if the sold ticker has a purchased price. It is important to calculate the mean price of the ticker and then profit.
+            if len(df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].values) == 0:
                 fail['ticker'].append(ticker)
                 fail['reason'].append("Não há um preço de compra dessa ação na lista")
 
