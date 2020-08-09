@@ -3,6 +3,7 @@ import numpy as np
 import streamlit as st
 import re
 import io
+import datetime
 
 
 @st.cache(allow_output_mutation=True)
@@ -34,31 +35,41 @@ def cleaning(dataset):
 
 def check_consistency(df):
 
-    fail = {'ticker': [], 'reason':[] }
+    fail = {'ticker': [], 'date':[], "index":[] }
     for ticker in df["Código"].unique():
         
 
-        if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values) > 0:
+        if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)].values) > 0:
 	#check to insure the sell date is after the purchase date. It guarantee that we have a mean price to calculate the profit.
-            first_buy = df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].values[0]
-            first_sell = df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].values[0]
+            
+            first_sell_index = df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].index[0]
+            first_sell_date = df.iloc[first_sell_index]['Data Negócio']
 
-            if first_sell<first_buy:
-                fail['ticker'].append(ticker)
-                fail['reason'].append("A data da venda é antes de compra")
+         
 	#check if the sold ticker has a purchased price. It is important to calculate the mean price of the ticker and then profit.
-            if len(df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].values) == 0:
+            if len(df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].iloc[:first_sell_index]) == 0:
                 fail['ticker'].append(ticker)
-                fail['reason'].append("Não há um preço de compra dessa ação na lista")
+                fail['index'].append(first_sell_index)
+                fail['date'].append(first_sell_date)
+                st.write(f"No arquivo tem informação sobre a venda da ação {ticker} na data {first_sell_date} mas está faltando informação sobre a sua compra")
+                st.write(f"Por favor insere a informação sobre a compra")
+                data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
+                data_compra = pd.to_datetime(data_compra)
+                quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
+                preço_compra = st.number_input(label="Preço", min_value = 0.01)
+                b = st.button(label="Enter")
+                #raise st.ScriptRunner.StopException
 
-    for i in range(len(fail['ticker'])):
-        st.subheader("Erro")
-        st.write(f"Erro na ação {fail['ticker'][i]}")
-        st.write(f"Motivo: {fail['reason'][i]}")
-        st.write("")
+                
+                if b:
+                    line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
+                    , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
+                    df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
 
-    return len(fail['ticker'])==0
+                
+    
 
+    return df
 
 
 
@@ -95,31 +106,59 @@ def general_view(df1):
 
     df['Custo de Operação'] = np.where(df["C/V"] == "V", -1*df['Valor Total (R$)'] * (0.000325 + 0.00005),df['Valor Total (R$)'] * (0.000325))
 
+    df['Custo de Operação'] = round(df['Custo de Operação'],3)
+
     
-    #calculationg the mean cost of a purchased stock and its evolution by new acquisition. 
+    #calculationg the mean cost of a purchased stock and its evolution by new acquisition for swing trade. 
     tickers = df["Código"].unique() 
     df["Custo Médio"] = 0.
 
     for ticker in tickers:
         means = {"Custo":[], "N":[]}
         for index, row in df[(df["Código"] == ticker) & (df['C/V']=='C')].iterrows():
-            means["Custo"].append(row["Valor Total (R$)"] +  row['Custo de Operação'])
-            means["N"].append(row["Quantidade"])
-            mean = -1*sum(means["Custo"])/(sum(means['N']))
-            df.at[index,'Custo Médio'] = round(mean,3)
+            if index not in day_trade["index"]:
+                means["Custo"].append(row["Valor Total (R$)"] +  row['Custo de Operação'])
+                means["N"].append(row["Quantidade"])
+                mean = -1*sum(means["Custo"])/(sum(means['N']))
+                df.at[index,'Custo Médio'] = round(mean,3)
+    
+    #calculating custo medio for day-trade operations
+    for date in day_trade["date"]:
+        for ticker in df[df['Data Negócio']==date]["Código"].unique():
+            if ticker in day_trade['ticker']:
+                day_indices = df[(df['Data Negócio']==date) & (df['Código']==ticker) & (df["C/V"]=='C')].index
+                total_quantity = df.iloc[day_indices]["Quantidade"].sum()
+                price_sum = df.iloc[day_indices]["Valor Total (R$)"].sum()
+                cost_sum = df.iloc[day_indices]['Custo de Operação'].sum()
+                total = price_sum + cost_sum
+                df.at[day_indices, 'Custo Médio'] = -1*round(total/total_quantity, 3)
+
+
 
     #calculating the profit of each sell
 
-    df["Lucro da Venda"] = 0.
+    df["Lucro da Venda"] = 0. 
 
     indices = df[df["C/V"] == 'V'].index
 
     for index in indices:
-        quantity = df.loc[index]["Quantidade"]
-        total = df.loc[index]["Valor Total (R$)"] + df.loc[index]["Custo de Operação"]
-        ticker = df.loc[index]["Código"]
-        custo_medio = df[(df["Código"] ==ticker) & (df["C/V"] == 'C')].loc[:index]["Custo Médio"].values[-1]
-        df.at[index, "Lucro da Venda"] = total - (quantity * custo_medio)
+        if df.iloc[index]['Day/Swing'] == "Swing":
+            quantity = df.iloc[index]["Quantidade"]
+            total = df.iloc[index]["Valor Total (R$)"] + df.iloc[index]["Custo de Operação"]
+            ticker = df.iloc[index]["Código"]
+            custo_medio = df[(df["Código"] ==ticker) & (df["C/V"] == 'C')].iloc[:index]["Custo Médio"].values[-1]
+            df.at[index, "Lucro da Venda"] = round(total - (quantity * custo_medio),3)
+
+        if df.iloc[index]['Day/Swing'] == "Day":
+            total = df.iloc[index]["Valor Total (R$)"] + df.iloc[index]["Custo de Operação"]
+            ticker = df.iloc[index]["Código"]
+            quantity = df.iloc[index]["Quantidade"]
+            date = df.iloc[index]["Data Negócio"]
+            custo_medio = df[(df["Código"] ==ticker) & (df["C/V"] == 'C')&(df["Data Negócio"]==date)]["Custo Médio"].values[0]
+            df.at[index, "Lucro da Venda"] = round(total - (quantity * custo_medio),3)
+
+
+
 
     
 
@@ -237,10 +276,11 @@ else:
 
 df_clean = cleaning(df_orig)
 
-if  not check_consistency(df_clean):
-    
-    raise st.ScriptRunner.StopException
+#if  not check_consistency(df_clean):
+#    
+#    raise st.ScriptRunner.StopException
     #quit()
+df_check = check_consistency(df_clean)
 
 #configuration od sidebar
 years = df_clean["Data Negócio"].dt.year.unique().tolist()
@@ -269,7 +309,7 @@ modalidade = st.sidebar.selectbox(
 st.header("Uma Visão Geral das Operações")
 #main part
 
-df = general_view(df_clean)
+df = general_view(df_check)
 #st.dataframe(df, width=1024)
 
 st.dataframe(df.style.set_precision(2))
