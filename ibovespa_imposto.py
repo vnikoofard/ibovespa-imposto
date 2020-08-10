@@ -5,6 +5,8 @@ import re
 import io
 import datetime
 
+st.set_option('deprecation.showfileUploaderEncoding', False)
+
 
 @st.cache(allow_output_mutation=True)
 def cleaning(dataset):
@@ -31,13 +33,20 @@ def cleaning(dataset):
     dataset['Código'] = dataset["Código"].apply(fracionario_to_normal)
     dataset.drop(['Mercado', 'Prazo','Especificação do Ativo' ], axis=1, inplace=True)
 
-    return dataset
+    dataset.to_csv("df.csv")
 
-def check_consistency(df):
+    #return dataset
 
-    fail = {'ticker': [], 'date':[], "index":[] }
+
+def check_consistency():
+
+    df = pd.read_csv("df.csv", index_col=0)
+    df['Data Negócio'] = pd.to_datetime(df['Data Negócio'],dayfirst=True)
+    
+    #status = True
+
+    fail = {'ticker':'', 'date':'', "index":'' }
     for ticker in df["Código"].unique():
-        
 
         if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)].values) > 0:
 	#check to insure the sell date is after the purchase date. It guarantee that we have a mean price to calculate the profit.
@@ -48,35 +57,49 @@ def check_consistency(df):
          
 	#check if the sold ticker has a purchased price. It is important to calculate the mean price of the ticker and then profit.
             if len(df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].iloc[:first_sell_index]) == 0:
-                fail['ticker'].append(ticker)
-                fail['index'].append(first_sell_index)
-                fail['date'].append(first_sell_date)
-                st.write(f"No arquivo tem informação sobre a venda da ação {ticker} na data {first_sell_date} mas está faltando informação sobre a sua compra")
-                st.write(f"Por favor insere a informação sobre a compra")
-                data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
-                data_compra = pd.to_datetime(data_compra)
-                quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
-                preço_compra = st.number_input(label="Preço", min_value = 0.01)
-                b = st.button(label="Enter")
-                #raise st.ScriptRunner.StopException
-
+                fail['ticker'] = ticker
+                fail['index'] = first_sell_index
+                fail['date'] = first_sell_date
+                status = True
+                break
                 
-                if b:
-                    line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
-                    , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
-                    df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
-
+            else:
+                status = False        
                 
+    return status ,fail
+
+def add(fail):
+    df = pd.read_csv("df.csv", index_col=0)
+    df['Data Negócio'] = pd.to_datetime(df['Data Negócio'],dayfirst=True)
+
+    
+    ticker, first_sell_date, first_sell_index = fail.values()
+    st.write(f"No arquivo tem informação sobre a venda da ação {ticker} na data {first_sell_date} mas está faltando informação sobre a sua compra")
+
+    data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
+    data_compra = pd.to_datetime(data_compra)
+    quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
+    preço_compra = st.number_input(label="Preço", min_value = 0.01)
+    
+    
+    #raise st.ScriptRunner.StopException
+
+    
+    if st.button(label="Enter"):
+        line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
+        , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
+        df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
+        df.sort_index(inplace=True)
+        df.to_csv("df.csv")
     
 
-    return df
-
-
-
 @st.cache
-def general_view(df1):
+def general_view():
+    df = pd.read_csv("df.csv", index_col=0)
+    df['Data Negócio'] = pd.to_datetime(df['Data Negócio'],dayfirst=True)
+    df.sort_index(inplace=True)
 
-    df=df1.copy()
+    #df=df1.copy()
 
     #finding the day-trade operations
     day_trade = {"date":[], "ticker":[], 'index':[]}
@@ -126,12 +149,12 @@ def general_view(df1):
     for date in day_trade["date"]:
         for ticker in df[df['Data Negócio']==date]["Código"].unique():
             if ticker in day_trade['ticker']:
-                day_indices = df[(df['Data Negócio']==date) & (df['Código']==ticker) & (df["C/V"]=='C')].index
-                total_quantity = df.iloc[day_indices]["Quantidade"].sum()
-                price_sum = df.iloc[day_indices]["Valor Total (R$)"].sum()
-                cost_sum = df.iloc[day_indices]['Custo de Operação'].sum()
+                day_index = df[(df['Data Negócio']==date) & (df['Código']==ticker) & (df["C/V"]=='C')].index
+                total_quantity = df.iloc[day_index]["Quantidade"].sum()
+                price_sum = df.iloc[day_index]["Valor Total (R$)"].sum()
+                cost_sum = df.iloc[day_index]['Custo de Operação'].sum()
                 total = price_sum + cost_sum
-                df.at[day_indices, 'Custo Médio'] = -1*round(total/total_quantity, 3)
+                df.at[day_index, 'Custo Médio'] = -1*round(total/total_quantity, 3)
 
 
 
@@ -149,7 +172,7 @@ def general_view(df1):
             custo_medio = df[(df["Código"] ==ticker) & (df["C/V"] == 'C')].iloc[:index]["Custo Médio"].values[-1]
             df.at[index, "Lucro da Venda"] = round(total - (quantity * custo_medio),3)
 
-        if df.iloc[index]['Day/Swing'] == "Day":
+        elif df.iloc[index]['Day/Swing'] == "Day":
             total = df.iloc[index]["Valor Total (R$)"] + df.iloc[index]["Custo de Operação"]
             ticker = df.iloc[index]["Código"]
             quantity = df.iloc[index]["Quantidade"]
@@ -158,11 +181,8 @@ def general_view(df1):
             df.at[index, "Lucro da Venda"] = round(total - (quantity * custo_medio),3)
 
 
-
-
-    
-
     return df
+
 
 def day_trade_imposto(df):
 
@@ -264,59 +284,66 @@ def impostos(dataset,year ='todos',month='todos',day='todos',modalidade='todos')
 #Initialization
 st.title("Análise Tributária do Aviso de Negociação de Ativos (ANA)")
 st.markdown("O ANA é um documento emitido por B3 que resume todas as operações no mercado de ações Brasileiro. Esse documento se encontra no [https://cei.b3.com.br](https://cei.b3.com.br), no menu **Extratos e Informativos** -> **Negociação de ativos**. É um arquivo de Excel com nome InfoCEI.xls. É crucial que o arquivo ANA contenha todas as operações pois os preços das compras são necessários para calcular o custo medio de cada ação, ou seja, no arquivo tem que ter no minimo uma compra para cada ação antes da sua venda.")
-file_buffer = None
+
+#file_buffer = None
 file_buffer = st.file_uploader("Upload o ANA", type=["xls"])
 #text_io = io.TextIOWrapper(file_buffer, encoding='utf-8')
 
-
-if file_buffer is not None:
+if file_buffer:
     df_orig = pd.read_excel(file_buffer, skiprows=10, skipfooter=4)
-else:
-    df_orig = pd.read_excel("InfoCEI_fake.xls", skiprows=10, skipfooter=4)
 
-df_clean = cleaning(df_orig)
+    cleaning(df_orig)
+    status, fail = check_consistency()
+    #st.write(status, fail)
+    if status:
+        #st.write("Add function trigged")
+        add(fail)
+    else: 
+        #st.write("General View launched")
+        df = general_view()
+        #configuration od sidebar
+        years = df["Data Negócio"].dt.year.unique().tolist()
+        months = df["Data Negócio"].dt.month.unique().tolist()
+        days = np.sort(df["Data Negócio"].dt.day.unique()).tolist()
 
-#if  not check_consistency(df_clean):
-#    
-#    raise st.ScriptRunner.StopException
-    #quit()
-df_check = check_consistency(df_clean)
+        month_convert= {1: "Janeiro", 2:"Fevereiro", 3:"Março", 4:'April', 5: 'Maio', 6:"Junho", 7:'Julho', 8:"Agosto",
+        9: "Setembro", 10: "Outubro", 11:"Novembro", 12:'Dezembro'}
 
-#configuration od sidebar
-years = df_clean["Data Negócio"].dt.year.unique().tolist()
-months = df_clean["Data Negócio"].dt.month.unique().tolist()
-days = np.sort(df_clean["Data Negócio"].dt.day.unique()).tolist()
+        months = [month_convert[i] for i in months]
 
-years.insert(0,'todos')
-months.insert(0, 'todos')
-days.insert(0, 'todos')
+        years.insert(0,'todos')
+        months.insert(0, 'todos')
+        days.insert(0, 'todos')
 
-st.sidebar.header("Configurar a Data")
+        st.sidebar.header("Configurar a Data")
 
-year = st.sidebar.selectbox(
-    "Escolhe o ano",years)
+        year = st.sidebar.selectbox(
+            "Escolhe o ano",years)
 
-month = st.sidebar.selectbox(
-    "Escolhe o mes", months)
+        month = st.sidebar.selectbox(
+            "Escolhe o mes", months)
+        if month != 'todos':
+            month = [i for i in month_convert.keys() if month_convert[i]==month][0]
 
-day = st.sidebar.selectbox(
-    "Escolhe o dia",days)
+        day = st.sidebar.selectbox(
+            "Escolhe o dia",days)
 
-modalidade = st.sidebar.selectbox(
-    "Escolhe a modalidade (day-trade e/ou swing-trade)",
-    ('todos', 'swing', 'day'))
+        modalidade = st.sidebar.selectbox(
+            "Escolhe a modalidade (day-trade e/ou swing-trade)",
+            ('todos', 'swing', 'day'))
 
-st.header("Uma Visão Geral das Operações")
-#main part
+        st.header("Uma Visão Geral das Operações")
 
-df = general_view(df_check)
-#st.dataframe(df, width=1024)
+        #main part
 
-st.dataframe(df.style.set_precision(2))
+        #df = general_view(df_check)
+        #st.dataframe(df, width=1024)
 
-st.header("Os Impostos")
+        st.dataframe(df.style.set_precision(2))
 
-#impostos(df, year= year, month=month, day=day, modalidade=modalidade)
-st.dataframe(impostos(df, year= year, month=month, day=day, modalidade=modalidade))
+        st.header("Os Impostos")
 
-st.markdown('O script desse App se encontra no [ibovespa-imposto](https://github.com/vnikoofard/ibovespa-imposto)')
+        #impostos(df, year= year, month=month, day=day, modalidade=modalidade)
+        st.dataframe(impostos(df, year= year, month=month, day=day, modalidade=modalidade))
+
+        st.markdown('O script desse App se encontra no [ibovespa-imposto](https://github.com/vnikoofard/ibovespa-imposto)')
