@@ -56,7 +56,7 @@ def check_consistency():
 
          
 	#check if the sold ticker has a purchased price. It is important to calculate the mean price of the ticker and then profit.
-            if len(df[(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio'].iloc[:first_sell_index]) == 0:
+            if len(df.iloc[:first_sell_index][(df["C/V"] == "C") & (df["Código"] == ticker)]['Data Negócio']) == 0:
                 fail['ticker'] = ticker
                 fail['index'] = first_sell_index
                 fail['date'] = first_sell_date
