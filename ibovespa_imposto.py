@@ -79,7 +79,7 @@ def add(fail):
     data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
     data_compra = pd.to_datetime(data_compra)
     quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
-    preço_compra = st.number_input(label="Preço", min_value = 0.01)
+    preço_compra = st.number_input(label="Preço", min_value = 0.)
     
     
     #raise st.ScriptRunner.StopException
