@@ -301,7 +301,6 @@ if file_buffer:
     else: 
         #st.write("General View launched")
         df = general_view()
-        st.write(df.iloc[0])
         #configuration od sidebar
         years = df["Data Negócio"].dt.year.unique().tolist()
         months = df["Data Negócio"].dt.month.unique().tolist()
@@ -340,7 +339,8 @@ if file_buffer:
         #df = general_view(df_check)
         #st.dataframe(df, width=1024)
 
-        st.dataframe(df.style.set_precision(2))
+        #st.dataframe(df.style.set_precision(2))
+        st.dataframe(df)
 
         st.header("Os Impostos")
 
