@@ -339,12 +339,11 @@ if file_buffer:
         #df = general_view(df_check)
         #st.dataframe(df, width=1024)
 
-        #st.dataframe(df.style.set_precision(2))
-        st.dataframe(df)
+        st.write(df.style.set_precision(2))
 
         st.header("Os Impostos")
 
         #impostos(df, year= year, month=month, day=day, modalidade=modalidade)
         st.dataframe(impostos(df, year= year, month=month, day=day, modalidade=modalidade))
 
-        st.markdown('O script desse App se encontra no [ibovespa-imposto](https://github.com/vnikoofard/ibovespa-imposto)')
+        st.markdown('O script desse App se encontra no Github [ibovespa-imposto](https://github.com/vnikoofard/ibovespa-imposto)')
