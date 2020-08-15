@@ -96,7 +96,7 @@ def add(fail):
         quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
         preço_compra = st.number_input(label="Preço", min_value = 0.)
 
-        if st.button(label="Enter"):
+        if st.button(label="Enter", key=1):
             line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
             , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
             df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
@@ -115,7 +115,7 @@ def add(fail):
         quantidade_compra = st.number_input("Quantidade", min_value=different)
         preço_compra = st.number_input(label="Preço", min_value = 0.)
 
-        if st.button(label="Enter"):
+        if st.button(label="Enter", key=2):
             line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
             , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
             df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
