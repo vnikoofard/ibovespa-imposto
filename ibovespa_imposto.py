@@ -372,6 +372,6 @@ if file_buffer:
         st.header("Os Impostos")
 
         #impostos(df, year= year, month=month, day=day, modalidade=modalidade)
-        st.dataframe(impostos(df, year= year, month=month, day=day, modalidade=modalidade).style.set_precision(2))
+        st.dataframe(impostos(df, year= year, month=month, day=day, modalidade=modalidade))
 
         st.markdown('O script desse App se encontra no Github [ibovespa-imposto](https://github.com/vnikoofard/ibovespa-imposto)')
