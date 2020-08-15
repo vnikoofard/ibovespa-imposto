@@ -53,8 +53,8 @@ def check_consistency():
             
             first_sell_index = df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].index[0]
             first_sell_date = df.iloc[first_sell_index]['Data Negócio']
-            total_sold = df[(df["C/V"] == "V") & df["Código"]==ticker]['Quantidade'].sum()
-            total_purchased = df[(df["C/V"] == "C") & df["Código"]==ticker]['Quantidade'].sum()
+            total_sold = df[(df["C/V"] == "V") & (df["Código"]==ticker)]['Quantidade'].sum()
+            total_purchased = df[(df["C/V"] == "C") & (df["Código"]==ticker)]['Quantidade'].sum()
 
          
 	#check if the sold ticker has a purchased price. It is important to calculate the mean price of the ticker and then profit.
@@ -96,8 +96,8 @@ def add(fail):
         preço_compra = st.number_input(label="Preço", min_value = 0.)
 
     if reason == 'less':
-        total_sold = df[(df["C/V"] == "V") & df["Código"]==ticker]['Quantidade'].sum()
-        total_purchased = df[(df["C/V"] == "C") & df["Código"]==ticker]['Quantidade'].sum()
+        total_sold = df[(df["C/V"] == "V") & (df["Código"]==ticker)]['Quantidade'].sum()
+        total_purchased = df[(df["C/V"] == "C") & (df["Código"]==ticker)]['Quantidade'].sum()
         different = total_sold - total_purchased
         st.subheader('AVISO')
         st.markdown(f"No arquivo tem mais {different} venda da ação {ticker} do que compra. Por favor informa a data e o preço da compra.")
