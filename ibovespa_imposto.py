@@ -88,7 +88,8 @@ def add(fail):
 
     if reason == 'before': 
         st.subheader('AVISO')
-        st.markdown(f"No arquivo tem informação sobre a venda da ação **{ticker}** na data **{first_sell_date.date()}** mas está faltando informação sobre a sua compra")
+        st.markdown(f'''No arquivo tem informação sobre a venda da ação **{ticker}** na data **{first_sell_date.date()}** 
+        mas está faltando informação sobre a sua compra nos dias anteriores''')
 
         data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
         data_compra = pd.to_datetime(data_compra)
