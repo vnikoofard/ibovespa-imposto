@@ -96,6 +96,13 @@ def add(fail):
         quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
         preço_compra = st.number_input(label="Preço", min_value = 0.)
 
+        if st.button(label="Enter"):
+            line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
+            , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
+            df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
+            df.sort_index(inplace=True)
+            df.to_csv("df.csv")
+
     if reason == 'less':
         total_sold = df[(df["C/V"] == "V") & (df["Código"]==ticker)]['Quantidade'].sum()
         total_purchased = df[(df["C/V"] == "C") & (df["Código"]==ticker)]['Quantidade'].sum()
@@ -108,17 +115,19 @@ def add(fail):
         quantidade_compra = st.number_input("Quantidade", min_value=different)
         preço_compra = st.number_input(label="Preço", min_value = 0.)
 
+        if st.button(label="Enter"):
+            line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
+            , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
+            df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
+            df.sort_index(inplace=True)
+            df.to_csv("df.csv")
+
     
     
     #raise st.ScriptRunner.StopException
 
     
-    if st.button(label="Enter"):
-        line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
-        , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
-        df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
-        df.sort_index(inplace=True)
-        df.to_csv("df.csv")
+    
     
 
 @st.cache
