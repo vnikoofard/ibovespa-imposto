@@ -14,7 +14,6 @@ def cleaning(dataset):
     df_orig.drop([x for x in dataset.columns if x.startswith("Unn")], axis=1 , inplace=True)
 
     dataset['Data Negócio'] = pd.to_datetime(dataset['Data Negócio'],dayfirst=True)
-    st.write(dataset.iloc[0])
 
     def correction(x):
         if "C" in x:
@@ -293,6 +292,8 @@ if file_buffer:
     df_orig = pd.read_excel(file_buffer, skiprows=10, skipfooter=4)
 
     cleaning(df_orig)
+    st.write(df_orig.iloc[0])
+
     status, fail = check_consistency()
     #st.write(status, fail)
     if status:
