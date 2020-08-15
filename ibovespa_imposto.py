@@ -338,7 +338,7 @@ if file_buffer:
 
         #df = general_view(df_check)
         #st.dataframe(df, width=1024)
-        st.write(df.iloc[0].style.set_precision(2))
+        st.write(df.iloc[0])
         st.write(df.style.set_precision(2))
 
         st.header("Os Impostos")
