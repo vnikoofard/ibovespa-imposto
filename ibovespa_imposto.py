@@ -45,7 +45,7 @@ def check_consistency():
     
     #status = True
 
-    fail = {'ticker':'', 'date':'', "index":'' }
+    fail = {'ticker':'', 'date':'', "index":'' , 'reason':''}
     for ticker in df["Código"].unique():
 
         if len(df[(df["C/V"] == "V") & (df["Código"] == ticker)].values) > 0:
@@ -53,6 +53,8 @@ def check_consistency():
             
             first_sell_index = df[(df["C/V"] == "V") & (df["Código"] == ticker)]['Data Negócio'].index[0]
             first_sell_date = df.iloc[first_sell_index]['Data Negócio']
+            total_sold = df[(df["C/V"] == "V") & df["Código"]==ticker]['Quantidade'].sum()
+            total_purchased = df[(df["C/V"] == "C") & df["Código"]==ticker]['Quantidade'].sum()
 
          
 	#check if the sold ticker has a purchased price. It is important to calculate the mean price of the ticker and then profit.
@@ -60,6 +62,15 @@ def check_consistency():
                 fail['ticker'] = ticker
                 fail['index'] = first_sell_index
                 fail['date'] = first_sell_date
+                fail['reason'] = 'before'
+                status = True
+                break
+    #check if there are more sold stocks than the purchased ones.
+            elif total_sold>total_purchased:
+                fail['ticker'] = ticker
+                fail['index'] = first_sell_index
+                fail['date'] = first_sell_date
+                fail['reason'] = 'less'
                 status = True
                 break
                 
@@ -73,13 +84,29 @@ def add(fail):
     df['Data Negócio'] = pd.to_datetime(df['Data Negócio'],dayfirst=True)
 
     
-    ticker, first_sell_date, first_sell_index = fail.values()
-    st.markdown(f"No arquivo tem informação sobre a venda da ação **{ticker}** na data **{first_sell_date.date()}** mas está faltando informação sobre a sua compra")
+    ticker, first_sell_date, first_sell_index, reason = fail.values()
 
-    data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
-    data_compra = pd.to_datetime(data_compra)
-    quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
-    preço_compra = st.number_input(label="Preço", min_value = 0.)
+    if reason == 'before': 
+        st.subheader('AVISO')
+        st.markdown(f"No arquivo tem informação sobre a venda da ação **{ticker}** na data **{first_sell_date.date()}** mas está faltando informação sobre a sua compra")
+
+        data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
+        data_compra = pd.to_datetime(data_compra)
+        quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
+        preço_compra = st.number_input(label="Preço", min_value = 0.)
+
+    if reason == 'less':
+        total_sold = df[(df["C/V"] == "V") & df["Código"]==ticker]['Quantidade'].sum()
+        total_purchased = df[(df["C/V"] == "C") & df["Código"]==ticker]['Quantidade'].sum()
+        different = total_sold - total_purchased
+        st.subheader('AVISO')
+        st.markdown(f"No arquivo tem mais {different} venda da ação {ticker} do que compra. Por favor informa a data e o preço da compra.")
+        
+        data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
+        data_compra = pd.to_datetime(data_compra)
+        quantidade_compra = st.number_input("Quantidade", min_value=different)
+        preço_compra = st.number_input(label="Preço", min_value = 0.)
+
     
     
     #raise st.ScriptRunner.StopException
