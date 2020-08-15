@@ -292,7 +292,6 @@ if file_buffer:
     df_orig = pd.read_excel(file_buffer, skiprows=10, skipfooter=4)
 
     cleaning(df_orig)
-    st.write(df_orig.iloc[0])
 
     status, fail = check_consistency()
     #st.write(status, fail)
@@ -302,6 +301,7 @@ if file_buffer:
     else: 
         #st.write("General View launched")
         df = general_view()
+        st.write(df.iloc[0])
         #configuration od sidebar
         years = df["Data Negócio"].dt.year.unique().tolist()
         months = df["Data Negócio"].dt.month.unique().tolist()
