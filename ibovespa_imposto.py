@@ -102,7 +102,7 @@ def add(fail):
         st.subheader('AVISO')
         st.markdown(f"No arquivo tem mais {different} venda da ação {ticker} do que compra. Por favor informa a data e o preço da compra.")
         
-        data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1), max_value=first_sell_date)
+        data_compra = st.date_input(f"A data da compra da ação {ticker}", value = first_sell_date- datetime.timedelta(days=1))
         data_compra = pd.to_datetime(data_compra)
         quantidade_compra = st.number_input("Quantidade", min_value=different)
         preço_compra = st.number_input(label="Preço", min_value = 0.)
