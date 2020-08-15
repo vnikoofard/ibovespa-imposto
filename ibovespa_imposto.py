@@ -14,6 +14,7 @@ def cleaning(dataset):
     df_orig.drop([x for x in dataset.columns if x.startswith("Unn")], axis=1 , inplace=True)
 
     dataset['Data Negócio'] = pd.to_datetime(dataset['Data Negócio'],dayfirst=True)
+    st.write(dataset.iloc[0])
 
     def correction(x):
         if "C" in x:
@@ -208,18 +209,17 @@ def swing_trade_imposto(df):
         
     for y in df["Data Negócio"].dt.year.unique():
         for m in df[df["Data Negócio"].dt.year ==y]["Data Negócio"].dt.month.unique():
-            for ticker in df[(df["Data Negócio"].dt.year ==y) & (df["Data Negócio"].dt.month ==m)]["Código"].unique():
-                venda_mes = df[(df["C/V"]=="V") & (df["Data Negócio"].dt.month ==m) & (df["Data Negócio"].dt.year ==y) & (df["Código"]==ticker)]['Valor Total (R$)'].sum()
-                count = 0
-                if venda_mes >= 20000:
-                    count = 1
-                    for index in df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)& (df["Código"]==ticker)].index:
-                        df.at[index, "DARF"] = df.loc[index]["Lucro da Venda"]* 0.15
+            venda_mes = df[(df["C/V"]=="V") & (df["Data Negócio"].dt.month ==m) & (df["Data Negócio"].dt.year ==y)]['Valor Total (R$)'].sum()
+            count = 0
+            if venda_mes >= 20000:
+                count = 1
+                for index in df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)].index:
+                    df.at[index, "DARF"] = df.loc[index]["Lucro da Venda"]* 0.15
 
 
-                    valor = df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)& (df["Código"]==ticker)]["DARF"].sum()
-                    st.subheader("Swing-Trade")
-                    st.write(f"O total imposto devido em relação as operações swing-trade no mes {m} do ano {y} escolhido é {round(valor,2)}R$")
+                valor = df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)]["DARF"].sum()
+                st.subheader("Swing-Trade")
+                st.write(f"O total imposto devido em relação as operações swing-trade no mes {m} do ano {y} escolhido é {round(valor,2)}R$")
                 
                     
     if count == 0:
