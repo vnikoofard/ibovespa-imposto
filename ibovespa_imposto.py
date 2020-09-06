@@ -179,8 +179,8 @@ def general_view():
             if index not in day_trade["index"]:
                 means["Custo"].append(row["Valor Total (R$)"] +  row['Custo de Operação'])
                 means["N"].append(row["Quantidade"])
-                mean = -1*sum(means["Custo"])/(sum(means['N']))
-                df.at[index,'Custo Médio'] = round(mean,3)
+                mean = sum(means["Custo"])/(sum(means['N']))
+                df.at[index,'Custo Médio'] = -1*abs(round(mean,3))
     
     #calculating custo medio for day-trade operations
     for date in day_trade["date"]:
@@ -191,7 +191,7 @@ def general_view():
                 price_sum = df.iloc[day_index]["Valor Total (R$)"].sum()
                 cost_sum = df.iloc[day_index]['Custo de Operação'].sum()
                 total = price_sum + cost_sum
-                df.at[day_index, 'Custo Médio'] = -1*round(total/total_quantity, 3)
+                df.at[day_index, 'Custo Médio'] = -1*abs(round(total/total_quantity, 3))
 
 
 
@@ -206,8 +206,8 @@ def general_view():
             quantity = df.iloc[index]["Quantidade"]
             total = df.iloc[index]["Valor Total (R$)"] + df.iloc[index]["Custo de Operação"]
             ticker = df.iloc[index]["Código"]
-            custo_medio = df[(df["Código"] ==ticker) & (df["C/V"] == 'C')].iloc[:index]["Custo Médio"].values[-1]
-            df.at[index, "Lucro da Venda"] = round(total - (quantity * custo_medio),3)
+            custo_medio = df.iloc[:index][(df["Código"] ==ticker) & (df["C/V"] == 'C')]["Custo Médio"].values[-1]
+            df.at[index, "Lucro da Venda"] = round(total + (quantity * custo_medio),3)
 
         elif df.iloc[index]['Day/Swing'] == "Day":
             total = df.iloc[index]["Valor Total (R$)"] + df.iloc[index]["Custo de Operação"]
@@ -215,7 +215,7 @@ def general_view():
             quantity = df.iloc[index]["Quantidade"]
             date = df.iloc[index]["Data Negócio"]
             custo_medio = df[(df["Código"] ==ticker) & (df["C/V"] == 'C')&(df["Data Negócio"]==date)]["Custo Médio"].values[0]
-            df.at[index, "Lucro da Venda"] = round(total - (quantity * custo_medio),3)
+            df.at[index, "Lucro da Venda"] = round(total + (quantity * custo_medio),3)
 
 
     return df
