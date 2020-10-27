@@ -4,6 +4,7 @@ import streamlit as st
 import re
 import io
 import datetime
+import sys
 
 st.set_option('deprecation.showfileUploaderEncoding', False)
 
@@ -41,7 +42,7 @@ def cleaning(dataset):
 def check_consistency():
 
     df = pd.read_csv("df.csv", index_col=0)
-    df['Data Negócio'] = pd.to_datetime(df['Data Negócio'],dayfirst=True)
+    df['Data Negócio'] = pd.to_datetime(df['Data Negócio'], dayfirst=True)
     
     #status = True
 
@@ -81,7 +82,7 @@ def check_consistency():
 
 def add(fail):
     df = pd.read_csv("df.csv", index_col=0)
-    df['Data Negócio'] = pd.to_datetime(df['Data Negócio'],dayfirst=True)
+    df['Data Negócio'] = pd.to_datetime(df['Data Negócio'], dayfirst=True)
 
     
     ticker, first_sell_date, first_sell_index, reason = fail.values()
@@ -96,7 +97,7 @@ def add(fail):
         quantidade_compra = st.number_input("Quantidade", min_value=df.iloc[first_sell_index]['Quantidade'])
         preço_compra = st.number_input(label="Preço", min_value = 0.)
 
-        if st.button(label="Enter 2X", key=1):
+        if st.button(label="Click 2X", key=1):
             line = pd.DataFrame({'Data Negócio':data_compra, 'C/V':"C", 'Código':ticker, 'Quantidade':quantidade_compra
             , 'Preço (R$)': preço_compra, 'Valor Total (R$)': preço_compra*quantidade_compra}, index = [first_sell_index])
             df = pd.concat([df.iloc[:first_sell_index], line, df.iloc[first_sell_index:]]).reset_index(drop=True)
@@ -126,9 +127,6 @@ def add(fail):
     
     #raise st.ScriptRunner.StopException
 
-    
-    
-    
 
 @st.cache
 def general_view():
@@ -138,8 +136,8 @@ def general_view():
 
     #df=df1.copy()
 
-    #finding the day-trade operations
-    day_trade = {"date":[], "ticker":[], 'index':[]}
+    #finding the DT-trade operations
+    DT_trade = {"date":[], "ticker":[], 'index':[]}
 
     dates = df["Data Negócio"].unique()
 
@@ -147,101 +145,178 @@ def general_view():
         tickers = df[df["Data Negócio"]==date]['Código'].unique()
         for ticker in tickers:
             if all(x in df[(df["Data Negócio"]==date) & (df["Código"]==ticker)]["C/V"].values for x in ["C","V"]):
-                day_trade['index'].append(df[(df["Data Negócio"]==date) & (df["Código"]==ticker)]["C/V"].index)
-                day_trade['date'].append(date)
-                day_trade['ticker'].append(ticker)
+                DT_trade['index'].append(df[(df["Data Negócio"]==date) & (df["Código"]==ticker)]["C/V"].index)
+                DT_trade['date'].append(date)
+                DT_trade['ticker'].append(ticker)
 
-    day_trade["index"] = [item for sublist in day_trade['index'] for item in sublist]
+    DT_trade["index"] = [item for sublist in DT_trade['index'] for item in sublist]
 
-    #creating a new column to mark the swing/day trades
+    #creating a new column to mark the ST/DT trades
 
-    df['Day/Swing'] = "Swing"
+    df['DT/ST'] = "ST"
 
-    df.at[day_trade['index'], 'Day/Swing'] = 'Day'
+    df.at[DT_trade['index'], 'DT/ST'] = 'DT'
 
-    #Calculating the operational costs of the negotiations.
-
+    #Calculating the operational costs of the operations.
+    #the Valor for the purchased stocks turns to negative cuz we loss money!
     df["Valor Total (R$)"] = np.where(df["C/V"] == "C", -1* df["Valor Total (R$)"], df["Valor Total (R$)"])
 
+    # the below costs are strange! I havnt found them in the website of Clear
+    #df['Custo de Operação-ST'] = np.where(df["C/V"] == "V", -1*df['Valor Total (R$)'] * (0.000325 + 0.00005),df['Valor Total (R$)'] * (0.000325))
 
-    df['Custo de Operação'] = np.where(df["C/V"] == "V", -1*df['Valor Total (R$)'] * (0.000325 + 0.00005),df['Valor Total (R$)'] * (0.000325))
+    df['Custos-ST'] = -1*abs(df['Valor Total (R$)'] * (0.000275 + 0.00005))
+    df['Custos-ST'] = round(df['Custos-ST'],3)
 
-    df['Custo de Operação'] = round(df['Custo de Operação'],3)
+    df['Custos-DT'] = 0.
 
+    #calculating in a DT-trade how stocks are divided between ST-trade e DT-trade
+    df['Quant-DT'] = 0
+    df['Quant-ST'] = df["Quantidade"]
+    df['Lucro-DT'] = 0. 
+    df['Lucro-ST'] = 0. 
+
+    for DT in DT_trade['date']:
+        for ticker in df[(df["Data Negócio"]==DT)&(df['DT/ST'] == "DT")]["Código"].unique() :
+            dt = df[(df["Data Negócio"]==DT) & (df["Código"]==ticker)]
+            sell_list = []
+            purchase_list = []
+            for index,row in dt.iterrows():
+                if row['C/V'] == 'V':
+                    sell_list.append(index)
+                if row['C/V'] == 'C':
+                    purchase_list.append(index)
     
-    #calculationg the mean cost of a purchased stock and its evolution by new acquisition for swing trade. 
+            for s_index, p_index in zip(sell_list,purchase_list):
+                sell_quantity = df.iloc[s_index]["Quantidade"]
+                purchase_quantity = df.iloc[p_index]["Quantidade"]
+                sell_price = df.iloc[s_index]["Preço (R$)"]
+                purchase_price = df.iloc[p_index]["Preço (R$)"]
+                dt_quantity = min(sell_quantity, purchase_quantity)
+                st_quantity = max(sell_quantity, purchase_quantity) - dt_quantity
+                dt_operation_cost = dt_quantity*(sell_price + purchase_price) * (0.0002 + 0.00005)
+                
+                df.at[p_index, 'Custos-DT'] = -1*abs(dt_quantity*(purchase_price) * (0.0002 + 0.00005))
+                df.at[s_index, 'Custos-DT'] = -1*abs(dt_quantity*(sell_price) * (0.0002 + 0.00005))
+
+                df.at[s_index,'Quant-DT'] = dt_quantity
+                df.at[s_index,'Quant-ST'] = df.iloc[s_index]["Quantidade"] - dt_quantity
+
+                #As some part of negociation might be ST trade
+                df.at[p_index, 'Custos-ST'] = -1*abs(st_quantity*(purchase_price) * (0.000275 + 0.00005))
+                df.at[s_index, 'Custos-ST'] = -1*abs(st_quantity*(sell_price) * (0.000275 + 0.00005))
+
+                df.at[p_index, 'Quant-DT'] = dt_quantity
+                df.at[p_index, 'Quant-ST'] = df.iloc[p_index]["Quantidade"] - dt_quantity
+                df.at[s_index, 'Lucro-DT'] = dt_quantity * (sell_price - purchase_price) - dt_operation_cost
+
+            #correcting "DT" to "ST"
+            s = [x[0] for x in zip(sell_list,purchase_list)] 
+            s2 = [x for x in sell_list if x not in s]
+            df.at[s2, 'DT/ST'] = "ST"
+
+            p = [x[1] for x in zip(sell_list,purchase_list)] 
+            p2 = [x for x in purchase_list if x not in p]
+            df.at[p2, 'DT/ST'] = "ST"
+            
+
+    #calculationg the mean cost of a purchased stock and its evolution by new acquisition for ST trade. 
     tickers = df["Código"].unique() 
-    df["Custo Médio"] = 0.
-
+    # for calculating the mean cost we need to follow the positions of each ticker in each operation.
+    # If position==0 the mean cost resets to the first purchase's price.
+    df["Posição"] = 0
     for ticker in tickers:
-        means = {"Custo":[], "N":[]}
-        for index, row in df[(df["Código"] == ticker) & (df['C/V']=='C')].iterrows():
-            if index not in day_trade["index"]:
-                means["Custo"].append(row["Valor Total (R$)"] +  row['Custo de Operação'])
-                means["N"].append(row["Quantidade"])
-                mean = sum(means["Custo"])/(sum(means['N']))
-                df.at[index,'Custo Médio'] = -1*abs(round(mean,3))
-    
-    #calculating custo medio for day-trade operations
-    for date in day_trade["date"]:
-        for ticker in df[df['Data Negócio']==date]["Código"].unique():
-            if ticker in day_trade['ticker']:
-                day_index = df[(df['Data Negócio']==date) & (df['Código']==ticker) & (df["C/V"]=='C')].index
-                total_quantity = df.iloc[day_index]["Quantidade"].sum()
-                price_sum = df.iloc[day_index]["Valor Total (R$)"].sum()
-                cost_sum = df.iloc[day_index]['Custo de Operação'].sum()
-                total = price_sum + cost_sum
-                df.at[day_index, 'Custo Médio'] = -1*abs(round(total/total_quantity, 3))
+        position = 0
+        for index, row in df[(df["Código"] == ticker)].iterrows():
+            if row['Quant-DT'] == 0 or row['Quant-ST'] != 0:
+                try: 
+                    if row['C/V'] == 'C':
+                        position = position + row['Quant-ST']
+                        df.at[index,"Posição"] = position 
+                        
+
+                    elif row['C/V'] == 'V':
+                        position = position - row['Quant-ST']
+                        df.at[index,"Posição"] = position
+                        
+
+                except:
+                    st.write(f"Erro no calculo de posição da ação {ticker} na data {row['Data Negócio']}")
+            
+            
+    #using the df['Position'] is possible to calculate the mean cost.
+    df["PM"] = 0.
+    for ticker in tickers:
+        position_prev = 0
+        mean_prev = 0
+    #calculating custo medio for ST-trade operations 
+        for index, row in df[(df["Código"] == ticker)].iterrows():
+            if row['Quant-ST'] != 0:
+                
+                try:
+                    if row['C/V']=='C':
+                        if position_prev == 0:
+                            medio = (row['Quant-ST']*row['Preço (R$)'] -row['Custos-ST'])/row['Quant-ST']
+                            df.at[index,"PM"] = medio
+                            mean_prev = medio
+                            position_prev = row['Posição']
+                        else:
+                            
+                            medio = (mean_prev*position_prev + row['Quant-ST']*row['Preço (R$)'] -row['Custos-ST'])/\
+                                (row['Quant-ST'] + position_prev)
+                            df.at[index,"PM"] = medio
+                            mean_prev = medio
+                            position_prev = row['Posição']
+
+                    if row['C/V']=='V':
+                        #mean_prev = row["PM"]
+                        position_prev = row['Posição']
+                        
 
 
+                except:
+                    st.write(f"Erro no calculo do custo medio no {ticker} na data {row['Data Negócio']}, error{sys.exc_info()}")
+                    st.write(row['Quant-ST'], position_prev)
 
+                
     #calculating the profit of each sell
 
-    df["Lucro da Venda"] = 0. 
-
-    indices = df[df["C/V"] == 'V'].index
-
-    for index in indices:
-        if df.iloc[index]['Day/Swing'] == "Swing":
-            quantity = df.iloc[index]["Quantidade"]
-            total = df.iloc[index]["Valor Total (R$)"] + df.iloc[index]["Custo de Operação"]
-            ticker = df.iloc[index]["Código"]
-            custo_medio = df.iloc[:index][(df["Código"] ==ticker) & (df["C/V"] == 'C')]["Custo Médio"].values[-1]
-            df.at[index, "Lucro da Venda"] = round(total + (quantity * custo_medio),3)
-
-        elif df.iloc[index]['Day/Swing'] == "Day":
-            total = df.iloc[index]["Valor Total (R$)"] + df.iloc[index]["Custo de Operação"]
-            ticker = df.iloc[index]["Código"]
-            quantity = df.iloc[index]["Quantidade"]
-            date = df.iloc[index]["Data Negócio"]
-            custo_medio = df[(df["Código"] ==ticker) & (df["C/V"] == 'C')&(df["Data Negócio"]==date)]["Custo Médio"].values[0]
-            df.at[index, "Lucro da Venda"] = round(total + (quantity * custo_medio),3)
-
+    #for ST-trade
+    for ticker in tickers:
+        for index, row in df[(df["Código"] == ticker)].iterrows():
+            if row['Quant-ST'] != 0:
+                if row["C/V"] == 'C':
+                    mean_cost = row['PM']
+                elif row["C/V"] == 'V':
+                    gain = row['Quant-ST']*row['Preço (R$)'] + row["Custos-ST"]
+                    costs = row['Quant-ST']*mean_cost #mean_cost is a negative value cuz we have paid money to purchase a stock
+                    net_gain = round(gain - costs,3)
+                    df.at[index, 'Lucro-ST'] = net_gain
+        
 
     return df
 
 
-def day_trade_imposto(df):
+def DT_trade_imposto(df):
 
-    df = df[df["Day/Swing"]=="Day"].copy()
+    df = df[df["DT/ST"]=="DT"].copy()
     for index in df.index:
-            df.at[index, "DARF"] = df.loc[index]["Lucro da Venda"]* 0.20
+            df.at[index, "DARF"] = df.loc[index]["Lucro-DT"]* 0.20
     
     df_group = df[['Data Negócio', 'C/V', 'Código', 'Quantidade', 
-    'Valor Total (R$)', 'Custo de Operação', 'Lucro da Venda',"Day/Swing", "DARF"]].groupby(['Data Negócio', "Código", "C/V"]).sum()
+    'Valor Total (R$)', 'Lucro-ST', 'Lucro-DT',"DT/ST", "DARF"]].groupby(['Data Negócio', "Código", "C/V"]).sum()
 
-    imposto_day = df_group['DARF'].sum()
+    imposto_DT = df_group['DARF'].sum()
 
-    st.subheader("Day-Trade")
+    st.subheader("DT-Trade")
 
-    st.write(f"O total imposto devido em relação as operações day-trade no periodo escolhido é {round(imposto_day,2)}")
+    st.write(f"O total imposto devido em relação as operações DT-trade no periodo escolhido é {round(imposto_DT,2)}")
 
     return df_group[df_group['DARF']!=0]
 
 
-def swing_trade_imposto(df):
+def ST_trade_imposto(df):
 
-    df = df[df["Day/Swing"]=="Swing"].copy()
+    df = df[df["DT/ST"]=="ST"].copy()
         
     for y in df["Data Negócio"].dt.year.unique():
         for m in df[df["Data Negócio"].dt.year ==y]["Data Negócio"].dt.month.unique():
@@ -250,38 +325,38 @@ def swing_trade_imposto(df):
             if venda_mes >= 20000:
                 count = 1
                 for index in df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)].index:
-                    df.at[index, "DARF"] = df.loc[index]["Lucro da Venda"]* 0.15
+                    df.at[index, "DARF"] = df.loc[index]["Lucro-ST"]* 0.15
 
 
                 valor = df[(df["C/V"] == 'V') & (df["Data Negócio"].dt.month == m) & (df["Data Negócio"].dt.year == y)]["DARF"].sum()
-                st.subheader("Swing-Trade")
-                st.write(f"O total imposto devido em relação as operações swing-trade no mes {m} do ano {y} escolhido é {round(valor,2)}R$")
+                st.subheader("ST-Trade")
+                st.write(f"O total imposto devido em relação as operações ST-trade no mes {m} do ano {y} escolhido é {round(valor,2)}R$")
                 
                     
     if count == 0:
-        st.write("Não há nenhuma tributação devido as operações swing-trade no intervalo escolhido.")
+        st.write("Não há nenhuma tributação devido as operações ST-trade no intervalo escolhido.")
     
     df_group = df[['Data Negócio', 'C/V', 'Código', 'Quantidade', 
-'Valor Total (R$)','Custo de Operação', 'Lucro da Venda', 'Day/Swing', "DARF"]].groupby(['Data Negócio', "Código", "C/V"]).sum()
+'Valor Total (R$)','Lucro-ST', 'Lucro-DT', 'DT/ST', "DARF"]].groupby(['Data Negócio', "Código", "C/V"]).sum()
     
    
     return df_group[df_group['DARF']!=0]
 
 
-def impostos(dataset,year ='todos',month='todos',day='todos',modalidade='todos'):
+def impostos(dataset,year ='todos',month='todos',DT='todos',modalidade='todos'):
 
     if modalidade == "todos":
         df = dataset.copy()
-    elif modalidade =='day':
-        df = dataset[dataset['Day/Swing']=="Day"].copy()
-    elif modalidade == 'swing':
-        df = dataset[dataset['Day/Swing']=="Swing"].copy()
+    elif modalidade =='DT':
+        df = dataset[dataset['DT/ST']=="DT"].copy()
+    elif modalidade == 'ST':
+        df = dataset[dataset['DT/ST']=="ST"].copy()
     else:
         print("Erro de modalidade")
 
     
-    if year != 'todos' and month != 'todos' and day != 'todos':
-        df_new = df[(df["Data Negócio"].dt.year == year) & (df["Data Negócio"].dt.month == month) & (df["Data Negócio"].dt.day == day)].copy()
+    if year != 'todos' and month != 'todos' and DT != 'todos':
+        df_new = df[(df["Data Negócio"].dt.year == year) & (df["Data Negócio"].dt.month == month) & (df["Data Negócio"].dt.DT == DT)].copy()
     elif year != 'todos' and month != 'todos':
         df_new = df[(df["Data Negócio"].dt.year == year) & (df["Data Negócio"].dt.month == month)].copy()
     elif year != 'todos':
@@ -292,23 +367,23 @@ def impostos(dataset,year ='todos',month='todos',day='todos',modalidade='todos')
     #creating a new column for DARF (tax)
     df_new["DARF"] = 0.
 
-    #Calculating the tax for the Day-trades
-    if modalidade == 'day':
-        df_group = day_trade_imposto(df_new)
-        df_group["Day/Swing"] = "Day"
+    #Calculating the tax for the DT-trades
+    if modalidade == 'DT':
+        df_group = DT_trade_imposto(df_new)
+        df_group["DT/ST"] = "DT"
 
-    #Calculating the tax for the Swing-trades
-    if modalidade == 'swing':
-        df_group = swing_trade_imposto(df_new)
-        df_group["Day/Swing"] = "Swing"
+    #Calculating the tax for the ST-trades
+    if modalidade == 'ST':
+        df_group = ST_trade_imposto(df_new)
+        df_group["DT/ST"] = "ST"
 
     #calculating the tax for both types
     if modalidade =='todos':
-        df_group1 = day_trade_imposto(df_new)
-        df_group1["Day/Swing"] = "Day"
+        df_group1 = DT_trade_imposto(df_new)
+        df_group1["DT/ST"] = "DT"
 
-        df_group2 = swing_trade_imposto(df_new)
-        df_group2["Day/Swing"] = "Swing"
+        df_group2 = ST_trade_imposto(df_new)
+        df_group2["DT/ST"] = "ST"
 
         df_group = pd.concat([df_group1,df_group2])
 
@@ -362,12 +437,12 @@ if file_buffer:
         if month != 'todos':
             month = [i for i in month_convert.keys() if month_convert[i]==month][0]
 
-        day = st.sidebar.selectbox(
+        DT = st.sidebar.selectbox(
             "Escolhe o dia",days)
 
         modalidade = st.sidebar.selectbox(
-            "Escolhe a modalidade (day-trade e/ou swing-trade)",
-            ('todos', 'swing', 'day'))
+            "Escolhe a modalidade (DT-trade e/ou ST-trade)",
+            ('todos', 'ST', 'DT'))
 
         st.header("Uma Visão Geral das Operações")
 
@@ -381,7 +456,7 @@ if file_buffer:
 
         st.header("Os Impostos")
 
-        #impostos(df, year= year, month=month, day=day, modalidade=modalidade)
-        st.dataframe(impostos(df, year= year, month=month, day=day, modalidade=modalidade))
+        #impostos(df, year= year, month=month, DT=DT, modalidade=modalidade)
+        st.dataframe(impostos(df, year= year, month=month, DT=DT, modalidade=modalidade))
 
         st.markdown('O script desse App se encontra no Github [ibovespa-imposto](https://github.com/vnikoofard/ibovespa-imposto)')
